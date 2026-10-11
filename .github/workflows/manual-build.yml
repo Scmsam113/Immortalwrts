@@ -19,6 +19,15 @@ on:
         required: false
         type: string
         default: ""
+      cache_mode:
+        description: readwrite restores and saves ccache; fresh starts empty; off disables caching.
+        required: true
+        type: choice
+        options:
+          - readwrite
+          - fresh
+          - off
+        default: readwrite
       upload_release:
         description: Upload firmware to GitHub Releases.
         required: true
@@ -41,6 +50,7 @@ jobs:
         run: |
           node scripts/openwrts.mjs validate-manifest
           node scripts/openwrts.mjs generate-workflows --check
+          node --test tests/*.test.mjs
 
       - name: Resolve build matrix
         id: matrix
@@ -51,6 +61,9 @@ jobs:
 
   build:
     needs: resolve
+    permissions:
+      contents: write
+      actions: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.resolve.outputs.matrix) }}
@@ -63,5 +76,6 @@ jobs:
       target_config: ${{ matrix.target_config }}
       app_config: ${{ matrix.app_config }}
       cache_scope: ${{ matrix.cache_scope }}
+      cache_mode: ${{ inputs.cache_mode }}
       upload_release: ${{ inputs.upload_release }}
     secrets: inherit

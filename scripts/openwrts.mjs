@@ -92,6 +92,19 @@ function deviceOptions(data) {
   return ["all", ...data.builds.map((item) => item.id)].map((id) => `          - ${id}`).join("\n");
 }
 
+function cacheModeInput() {
+  return `      cache_mode:
+        description: readwrite restores and saves ccache; fresh starts empty; off disables caching.
+        required: true
+        type: choice
+        options:
+          - readwrite
+          - fresh
+          - off
+        default: readwrite
+`;
+}
+
 function manualWorkflow(data) {
   const defaultDevice = data.workflow?.manual?.default_device || "all";
   return `${workflowHeader()}name: Manual ImmortalWrt Build
@@ -111,7 +124,7 @@ ${deviceOptions(data)}
         required: false
         type: string
         default: ""
-      upload_release:
+${cacheModeInput()}      upload_release:
         description: Upload firmware to GitHub Releases.
         required: true
         type: boolean
@@ -133,6 +146,7 @@ jobs:
         run: |
           node scripts/openwrts.mjs validate-manifest
           node scripts/openwrts.mjs generate-workflows --check
+          node --test tests/*.test.mjs
 
       - name: Resolve build matrix
         id: matrix
@@ -143,6 +157,9 @@ jobs:
 
   build:
     needs: resolve
+    permissions:
+      contents: write
+      actions: write
     strategy:
       fail-fast: false
       matrix: \${{ fromJSON(needs.resolve.outputs.matrix) }}
@@ -155,6 +172,7 @@ jobs:
       target_config: \${{ matrix.target_config }}
       app_config: \${{ matrix.app_config }}
       cache_scope: \${{ matrix.cache_scope }}
+      cache_mode: \${{ inputs.cache_mode }}
       upload_release: \${{ inputs.upload_release }}
     secrets: inherit
 `;
@@ -177,7 +195,7 @@ on:
         required: false
         type: string
         default: ""
-      upload_release:
+${cacheModeInput()}      upload_release:
         description: Upload firmware to GitHub Releases.
         required: true
         type: boolean
@@ -202,6 +220,7 @@ jobs:
         run: |
           node scripts/openwrts.mjs validate-manifest
           node scripts/openwrts.mjs generate-workflows --check
+          node --test tests/*.test.mjs
 
       - name: Resolve build matrix
         id: matrix
@@ -217,6 +236,9 @@ jobs:
 
   build:
     needs: resolve
+    permissions:
+      contents: write
+      actions: write
     strategy:
       fail-fast: false
       matrix: \${{ fromJSON(needs.resolve.outputs.matrix) }}
@@ -229,6 +251,7 @@ jobs:
       target_config: \${{ matrix.target_config }}
       app_config: \${{ matrix.app_config }}
       cache_scope: \${{ matrix.cache_scope }}
+      cache_mode: \${{ github.event.inputs.cache_mode || 'readwrite' }}
       upload_release: \${{ needs.resolve.outputs.upload_release == 'true' }}
     secrets: inherit
 `;

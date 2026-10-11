@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "immortalwrt-package-mirror",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-10-05",
+  "workers_dev": true,
+  "vars": {
+    "UPSTREAM_BASE_URL": "https://downloads.immortalwrt.org/",
+    "CACHE_VERSION": "v1"
+  }
+  // For production, use a Custom Domain in your own Cloudflare zone:
+  // , "routes": [{ "pattern": "packages.example.com", "custom_domain": true }]
+  // Disable workers_dev after testing if only the Custom Domain should be public.
+}

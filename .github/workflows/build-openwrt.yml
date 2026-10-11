@@ -21,6 +21,10 @@ on:
       cache_scope:
         required: true
         type: string
+      cache_mode:
+        required: false
+        type: string
+        default: readwrite
       upload_release:
         required: false
         type: boolean
@@ -37,13 +41,23 @@ jobs:
   build:
     name: ${{ inputs.device }}
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      actions: write
     env:
       TZ: Asia/Shanghai
       UPSTREAM_BRANCH: ${{ inputs.branch }}
       OPENWRT_DIR: /mnt/workdir/openwrt
-      CCACHE_DIR: /mnt/workdir/openwrt/.ccache
+      CCACHE_DIR: /mnt/workdir/cache/ccache
+      CCACHE_BASEDIR: /mnt/workdir/openwrt
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1.5GiB
+      BUILD_LOG_DIR: /mnt/workdir/build-logs
+      CACHE_MODE: ${{ inputs.cache_mode }}
+      CACHE_SCOPE: ${{ inputs.cache_scope }}
+      CACHE_PLATFORM: ubuntu2204
       # Keep this in the cache key when changing what is safe to restore.
-      CACHE_SCHEMA: v2
+      CACHE_SCHEMA: v3
 
     steps:
       - name: Checkout
@@ -69,19 +83,6 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/clone-source.sh" openwrt
           ln -sf /mnt/workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
 
-      - name: Cache downloads and ccache
-        uses: actions/cache@v6
-        with:
-          path: |
-            /mnt/workdir/openwrt/dl
-            !/mnt/workdir/openwrt/dl/go-mod-cache
-            /mnt/workdir/openwrt/.ccache
-          # Go module trees are mutable and can be left incomplete by an interrupted
-          # download.  Do not restore or persist them; Go will repopulate them safely.
-          key: immortalwrt-${{ env.CACHE_SCHEMA }}-${{ inputs.branch }}-${{ inputs.cache_scope }}-${{ hashFiles('feeds/**', 'packages/**', 'scripts/**', 'configs/**', 'manifests/**') }}
-          restore-keys: |
-            immortalwrt-${{ env.CACHE_SCHEMA }}-${{ inputs.branch }}-${{ inputs.cache_scope }}-
-
       - name: Apply system settings and feeds
         run: bash "$GITHUB_WORKSPACE/scripts/apply-openwrt.sh" system feeds
 
@@ -100,6 +101,33 @@ jobs:
           APP_CONFIG: ${{ inputs.app_config }}
         run: bash "$GITHUB_WORKSPACE/scripts/compose-config.sh"
 
+      - name: Record build and cache metadata
+        id: cache_meta
+        run: bash "$GITHUB_WORKSPACE/scripts/cache.sh" metadata
+
+      # Downloads (including mutable Go module trees) are deliberately rebuilt.
+      # Each successful run publishes a new ccache snapshot instead of freezing
+      # an immutable cache at the first successful build of a configuration.
+      - name: Restore ccache
+        id: restore_ccache
+        if: ${{ inputs.cache_mode == 'readwrite' }}
+        continue-on-error: true
+        uses: actions/cache/restore@v6
+        with:
+          path: /mnt/workdir/cache/ccache
+          key: ${{ steps.cache_meta.outputs.prefix }}${{ steps.cache_meta.outputs.config_hash }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ steps.cache_meta.outputs.prefix }}${{ steps.cache_meta.outputs.config_hash }}-
+            ${{ steps.cache_meta.outputs.prefix }}
+
+      - name: Initialize ccache
+        id: init_ccache
+        env:
+          CACHE_RESTORE_OUTCOME: ${{ steps.restore_ccache.outcome }}
+          CACHE_EXACT_HIT: ${{ steps.restore_ccache.outputs.cache-hit }}
+          CACHE_MATCHED_KEY: ${{ steps.restore_ccache.outputs.cache-matched-key }}
+        run: bash "$GITHUB_WORKSPACE/scripts/cache.sh" init
+
       - name: Download package sources
         run: bash "$GITHUB_WORKSPACE/scripts/build.sh" download
 
@@ -116,7 +144,42 @@ jobs:
         run: bash "$GITHUB_WORKSPACE/scripts/build.sh" packages
 
       - name: Build firmware images
+        id: images
         run: bash "$GITHUB_WORKSPACE/scripts/build.sh" images
+
+      - name: Prepare ccache snapshot
+        id: prepare_ccache
+        if: ${{ !cancelled() && steps.images.outcome == 'success' && inputs.cache_mode != 'off' }}
+        continue-on-error: true
+        run: bash "$GITHUB_WORKSPACE/scripts/cache.sh" prepare
+
+      - name: Save ccache
+        id: save_ccache
+        if: ${{ !cancelled() && steps.prepare_ccache.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: /mnt/workdir/cache/ccache
+          key: ${{ steps.cache_meta.outputs.prefix }}${{ steps.cache_meta.outputs.config_hash }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Retain latest ccache snapshot
+        if: ${{ !cancelled() && steps.save_ccache.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CACHE_PREFIX: ${{ steps.cache_meta.outputs.prefix }}
+          CACHE_CURRENT_KEY: ${{ steps.cache_meta.outputs.prefix }}${{ steps.cache_meta.outputs.config_hash }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash "$GITHUB_WORKSPACE/scripts/cache.sh" prune
+
+      - name: Upload build diagnostics
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-logs-${{ inputs.device }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /mnt/workdir/build-logs
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: Check space usage
         if: always()
@@ -153,7 +216,7 @@ jobs:
           } > release.txt
 
       - name: Upload firmware to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3.0.3
         if: ${{ inputs.upload_release }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
