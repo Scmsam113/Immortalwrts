@@ -59,7 +59,8 @@ run_make() {
   # Retry only explicit memory exhaustion, with fewer workers. Source and patch
   # errors need diagnosis, not another full pass over the same build target.
   if [ "$FALLBACK_JOBS" -lt "$JOBS" ] &&
-     grep -Eiq 'out of memory|cannot allocate memory|fatal error: Killed|Killed signal terminated program' "$BUILD_LOG_DIR/$PHASE-${label//\//-}-1.log"; then
+     sed -E 's/\x1B\[[0-9;]*[mK]//g' "$BUILD_LOG_DIR/$PHASE-${label//\//-}-1.log" |
+       grep -Ei '(^|: )(out of memory|cannot allocate memory)[.!]?[[:space:]]*$|fatal error: Killed|Killed signal terminated program|: signal: killed' > /dev/null; then
     RETRIES=$((RETRIES + 1))
     echo "Memory exhaustion detected; retrying with $FALLBACK_JOBS workers."
     run_logged "$FALLBACK_JOBS" 2 "$@"

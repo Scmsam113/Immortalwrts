@@ -2,10 +2,12 @@
 
 [ImmortalWrt](https://github.com/immortalwrt/immortalwrt) 构建下列设备：
 
-| 设备 ID | 目标 |
-| --- | --- |
-| `x86_64` | x86-64 generic，生成 ISO、VMDK 与 EXT4 镜像 |
-| `nn6000-v2` | Link NN6000 v2，`qualcommax/ipq60xx` |
+| 设备 ID | 目标 | 手动构建状态 | 定时发布状态 |
+| --- | --- | --- | --- |
+| `x86_64` | x86-64 generic，生成 ISO、VMDK 与 EXT4 镜像 | [![手动构建状态](https://github.com/bigbugcc/Immortalwrts/actions/workflows/manual-build.yml/badge.svg?branch=main)](https://github.com/bigbugcc/Immortalwrts/actions/workflows/manual-build.yml?query=branch%3Amain) | [![定时发布状态](https://github.com/bigbugcc/Immortalwrts/actions/workflows/schedule-release.yml/badge.svg?branch=main)](https://github.com/bigbugcc/Immortalwrts/actions/workflows/schedule-release.yml?query=branch%3Amain) |
+| `nn6000-v2` | Link NN6000 v2，`qualcommax/ipq60xx` | [![手动构建状态](https://github.com/bigbugcc/Immortalwrts/actions/workflows/manual-build.yml/badge.svg?branch=main)](https://github.com/bigbugcc/Immortalwrts/actions/workflows/manual-build.yml?query=branch%3Amain) | [![定时发布状态](https://github.com/bigbugcc/Immortalwrts/actions/workflows/schedule-release.yml/badge.svg?branch=main)](https://github.com/bigbugcc/Immortalwrts/actions/workflows/schedule-release.yml?query=branch%3Amain) |
+
+徽章显示本仓库 `main` 分支对应工作流的整体执行状态。两个设备共用工作流，因此显示相同徽章；点击徽章进入运行记录后，可查看各设备构建 job 的结果。
 
 
 ## ActionInfo

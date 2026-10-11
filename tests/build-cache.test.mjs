@@ -38,6 +38,7 @@ if [[ "$1" == defconfig ]] && ! grep -qx 'CONFIG_DEVEL=y' .config; then
 fi
 case "$FAKE_MAKE_MODE" in
   source-error) echo 'source syntax error'; exit 7 ;;
+  source-oom-text) printf '%s\\n' '  130 | printf("%s: out of memory\\n", progname);' 'upx: No such file or directory'; exit 2 ;;
   oom) if [[ "$1" == -j4 ]]; then echo 'cc1plus: fatal error: Killed signal terminated program cc1plus'; exit 2; fi ;;
   oom-always) echo 'cannot allocate memory'; exit 2 ;;
   download-flaky) if [[ "$count" == 1 ]]; then echo 'network timeout'; exit 3; fi ;;
@@ -102,6 +103,12 @@ test("explicit OOM retries once with fewer workers", (t) => {
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(f.calls(), ["-j4 package/compile V=s", "-j2 package/compile V=s"]);
   assert.match(readFileSync(join(f.logs, "phases.tsv"), "utf8"), /^packages\t\d+\t0\t4\t1/);
+});
+
+test("quoted source text about memory does not retry a missing-tool failure", (t) => {
+  const f = fixture(t, "source-oom-text");
+  assert.equal(f.run("build.sh", "packages").status, 2);
+  assert.deepEqual(f.calls(), ["-j4 package/compile V=s"]);
 });
 
 test("persistent OOM stops after one retry", (t) => {
