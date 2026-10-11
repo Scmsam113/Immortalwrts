@@ -187,18 +187,16 @@ jobs:
 
       - name: Organize files
         id: organize
-        run: |
-          firmware_dir="$(find "$OPENWRT_DIR/bin/targets" -mindepth 2 -maxdepth 2 -type d | head -n 1)"
-          [ -n "$firmware_dir" ] || { echo "Firmware directory not found." >&2; exit 1; }
-          rm -rf "$firmware_dir/packages"
-          echo "FIRMWARE=$firmware_dir" >> "$GITHUB_ENV"
-          echo "file_date=$(date +"%Y%m%d%H%M")" >> "$GITHUB_OUTPUT"
+        env:
+          DEVICE: ${{ inputs.device }}
+        run: bash "$GITHUB_WORKSPACE/scripts/package-release.sh"
 
       - name: Upload firmware directory
         uses: actions/upload-artifact@v7
         with:
           name: ImmortalWrt_${{ inputs.device }}_${{ steps.organize.outputs.file_date }}
           path: ${{ env.FIRMWARE }}
+          if-no-files-found: error
 
       - name: Generate release metadata
         if: ${{ inputs.upload_release }}
@@ -213,6 +211,8 @@ jobs:
             echo "Source: ImmortalWrt"
             echo "Branch: ${{ inputs.branch }}"
             echo "Device: ${{ inputs.op_name }}"
+            echo
+            echo "luci-apps archive: compiled LuCI apps and companion packages from this firmware build (APK/IPK, including target/kernel packages). Use with this release only."
           } > release.txt
 
       - name: Upload firmware to release
@@ -225,3 +225,4 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           body_path: release.txt
           files: ${{ env.FIRMWARE }}/*
+          fail_on_unmatched_files: true

@@ -27,6 +27,10 @@
 
 固件上传到 Release 前会同时作为 Action Artifact 保存。不要将 x86 与 NN6000 v2 的镜像交叉刷写。
 
+每个设备的 Artifact 和 Release 同时包含 `luci-apps-设备-时间.tar.gz` 与对应的 `.sha256`。直接归档本次编译的整个 `bin/packages` 及目标 `packages` 目录，包含 LuCI 应用、配套 APK/IPK 包、索引和内核包，保留 `bin/packages`、`bin/targets/目标/子目标/packages` 路径。压缩包附最终配置 `build.config`，固件包清单随固件发布。打包不会删除编译目录中的软件包。
+
+下载后运行 `sha256sum -c luci-apps-设备-时间.tar.gz.sha256` 校验整个压缩包，再解压。按需安装对应应用及缺少的依赖，不要一次安装所有包。仅用于同一个 Release 的固件，设备架构、APK/OPKG 格式、签名密钥及内核 ABI 必须匹配；该压缩包不是跨版本通用软件源。
+
 ## 软件源
 
 首次启动在上游中文默认设置之后，将 APK/OPKG 软件源切换到 `https://mirrors.nju.edu.cn/immortalwrt`，保留原来的版本、架构和内核 ABI 路径，并保存对应的 UCI 镜像设置。南京大学提供 master 所需的 snapshots；中科大仅同步 releases，不适用于本仓库默认的 master 构建。镜像不提供本仓库全部第三方包。
