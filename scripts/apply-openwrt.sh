@@ -15,10 +15,17 @@ apply_system() {
 }
 
 apply_feeds() {
-  local feeds="$ROOT_DIR/feeds/immortalwrt.conf"
+  local feeds="$ROOT_DIR/feeds/feeds.conf.default"
   local target="$OPENWRT_DIR/feeds.conf.default"
   [ -f "$feeds" ] && [ -f "$target" ] || { echo "ImmortalWrt feed configuration is missing." >&2; exit 1; }
-  cat "$feeds" >> "$target"
+  local backup="$OPENWRT_DIR/base_feeds.conf.default"
+  if [ ! -f "$backup" ]; then
+    cp "$target" "$backup"
+  fi
+  cp "$feeds" "$target"
+  printf '\n' >> "$target"
+  cat "$backup" >> "$target"
+  echo "Upstream feeds backed up to: $backup"
 }
 
 apply_packages() {
