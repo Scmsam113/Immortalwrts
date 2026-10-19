@@ -48,7 +48,7 @@ test("project feeds precede upstream feeds and the original configuration is bac
   assert.equal(result.status, 0, result.stderr);
   const config = readFileSync(path, "utf8");
   const names = config.split(/\r?\n/).filter((line) => line.startsWith("src-git ")).map((line) => line.split(/\s+/)[1]);
-  assert.deepEqual(names, ["passwall_packages", "passwall2", "helloworld", "istore", "packages", "luci"]);
+  assert.deepEqual(names, ["passwall_packages", "passwall2", "helloworld", "OpenClash", "packages", "luci"]);
   const custom = readFileSync(join(root, "feeds/feeds.conf.default"), "utf8");
   assert.equal(config, custom + "\n" + upstream);
   assert.equal(readFileSync(join(f.temp, "base_feeds.conf.default"), "utf8"), upstream);
